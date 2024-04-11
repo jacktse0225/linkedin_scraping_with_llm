@@ -1,8 +1,18 @@
 from openai import OpenAI
-import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.keys import Keys
+import time
+import pyperclip
+import os
+import tkinter as tk
+from tkinter import filedialog
+import sys
+import pandas as pd
 
 def split_text(text):
     max_chunk_size = 2048
@@ -45,4 +55,59 @@ def init_selenium():
     driver = webdriver.Chrome()
     actions = ActionChains(driver)
     driver.execute_cdp_cmd("Page.enable", {})
-    return driver, actions
+    wait = WebDriverWait(driver, 10)
+    return driver, actions, wait
+
+def selenium_wait(wait):
+    logo_element = wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'ivm-image-view-model')))
+    return logo_element
+
+def selenium_actions(actions):
+    time.sleep(1)
+    actions.key_down(Keys.CONTROL).send_keys('a').perform()
+    time.sleep(1)
+    actions.key_down(Keys.CONTROL).send_keys('c').perform()
+    time.sleep(1)
+    copied_content = pyperclip.paste().lower()
+    return copied_content
+
+def getting_file_path(multiple=False, file_type=None):
+    current_directory = os.getcwd()
+    root = tk.Tk()
+    root.withdraw()
+    file_type_dict = {"csv":(("CSV files", "*.csv"), ("All files", "*.*")), "any":"", "xlsx":(("XLSX files", "*.xlsx"), ("All files", "*.*"))}
+    if multiple:
+        file_path = filedialog.askopenfilenames(
+            initialdir=current_directory,
+            title="Select Files",
+            filetypes=file_type_dict.get(file_type),
+            multiple=True
+        )
+    else:
+        file_path = filedialog.askopenfilename(
+            initialdir=current_directory,
+            title="Select Files",
+            filetypes=file_type_dict.get(file_type),
+            multiple=False
+        )
+    if not file_path:
+        print("No files selected.")
+        return sys.exit()
+    return file_path
+
+def files_to_df(file_paths, file_type=None):
+    data_frames = []
+    if (file_type != "csv") and (file_type != "xlsx"):
+        print("Selected file type is not supported.")
+        sys.exit()
+        return
+    if file_type == "csv":
+        for file_path in file_paths:
+            df_add = pd.read_csv(file_path, encoding='utf-8')
+            data_frames.append(df_add)
+    if file_type == "xlsx":
+        for file_path in file_paths:
+            df_add = pd.read_excel(file_path)
+            data_frames.append(df_add)
+    combined_df = pd.concat(data_frames, ignore_index=True)
+    return combined_df
